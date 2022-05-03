@@ -74,6 +74,34 @@ function accuracy(targets::AbstractArray{Bool,1}, outputs::AbstractArray{Bool, 1
     (sum(acc) * 100)/(length(acc))
     end
 
+
+
+function holdOut(N::Int64, P::Float64)
+	v = randperm(N)
+	cut = round(Int64,size(v,1)*P)
+	return (v[1:cut], v[(cut + 1):(size(v,1))])
+end
+
+function holdOut(N::Int64, Pval::Float64, Ptest::Float64)
+	t1 = holdOut(N, Pval + Ptest)
+	t2 = holdOut(size(t1[2],1), Ptest)
+	w1 = zeros(Int64,size(t2[1],1))
+	w2 = zeros(Int64,size(t2[2],1))
+	j = 1
+	for i in t2[1]
+		w1[j] = t1[2][i]
+		j += 1
+	end
+	j = 1
+	for i in t2[2]
+		w2[j] = t1[2][i]
+		j += 1
+	end
+	return (t1[1], w1, w2)
+
+end
+
+
 function confusionMatrix(outputs::AbstractArray{Bool,1}, targets::AbstractArray{Bool,1})
 	#Verdadero negativo:
 	v1 = 0 .== outputs
@@ -511,15 +539,35 @@ end
 normalizeMinMax!(inputsMatrix)
 outputsMatrix = alcoholoneHotEncoding(parse.(Float64,ol))
 
-datasetaprox3 = [inputsMatrix[:, 1] (inputsMatrix[:, 2] .* inputsMatrix[:, 3])]
 
 trainset = inputsMatrix[1:234, :]
 testset = inputsMatrix[235:size(inputsMatrix,1), :]
 trainout = outputsMatrix[1:234]
 testout = outputsMatrix[235:size(inputsMatrix,1)]
 
-model = KNeighborsClassifier(2);
+
+#datasetaprox3 = [(inputsMatrix[:, 1] .* inputsMatrix[:, 2]) inputsMatrix[:, 3] ]
+
+#trainset = datasetaprox3[1:234, :]
+#testset = datasetaprox3[235:size(inputsMatrix,1), :]
+#trainout = outputsMatrix[1:234]
+#testout = outputsMatrix[235:size(inputsMatrix,1)]
+
+parameters = Dict("kernel" => "sigmoid", "degree" => 3, "gamma" => 2, "C"=> 3)
+model = SVC(kernel=parameters["kernel"], degree=parameters["degree"], gamma=parameters["gamma"], C=parameters["C"])
+
+
 
 fit!(model, trainset, trainout)
 expout = predict(model, testset); 
 d = confusionMatrix(expout,vec(testout))
+
+
+
+
+
+model = KNeighborsClassifier();
+
+model = DecisionTreeClassifier(max_depth=3, random_state=1) 
+model = KNeighborsClassifier(10);
+
