@@ -255,6 +255,7 @@ function entrenaRNA(topology::AbstractArray{<:Int,1}, dataset::Tuple{AbstractArr
 	# Bucle para entrenar cada ciclo!!!
 	aux = 0
 	ctr = 0
+	auxAnn = ann
 	while ((loss(inputs',targets') > minLoss) && (aux < maxEpochs) && (ctr < maxEpochsVal)) # Mientras el loss no sea ok(??) && no me pase de intentos max
 
 		Flux.train!(loss, params(ann), [(inputs', targets')], ADAM(learningRate)); 
@@ -265,13 +266,14 @@ function entrenaRNA(topology::AbstractArray{<:Int,1}, dataset::Tuple{AbstractArr
 			ctr += 1
 		else
 			ctr = 0
+			auxAnn = ann
 		end
 
 		aux += 1
 	end
 	
 	# Devuelvo RNA entrenada y un vector con los valores de loss en cada iteración.
-	return (ann, lossVector)
+	return (auxAnn, lossVector)
 
 end
 
