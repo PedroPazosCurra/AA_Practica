@@ -232,6 +232,49 @@ function entrenaRNA(topology::AbstractArray{<:Int,1}, dataset::Tuple{AbstractArr
 
 end
 
+function entrenaRNA(topology::AbstractArray{<:Int,1}, dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}, validacion::Tuple{AbstractArray{<:Real,2},
+	AbstractArray{Bool,2}}, test::Tuple{AbstractArray{<:Real,2},
+	AbstractArray{Bool,2}}, maxEpochsVal::Int64=20, maxEpochs::Int64=1000, minLoss::Real=0, learningRate::Real=0.01)
+
+	# Ojo 1, cercionarse de que inputs y targets tengan cada patrón en cada columna. La transpongo con ' pero ver si falla.
+	# Ojo 2, las matrices que se pasan para entrenar deben ser disjuntas a las que se usen para test.
+	
+	inputs = dataset[1]
+	targets = dataset[2]
+	lossVector = zeros(maxEpochs)
+	# Creo RNA que vamos a entrenar 
+#	ann = creaRNA(topology, size(inputs,1), size(targets,1))
+
+	ann = Chain(
+		Dense(3,264,σ),
+		Dense(264,1,σ)
+	)
+	
+	loss(x, y) = (size(y, 1) == 1) ? Losses.binarycrossentropy(ann(x), y) : Losses.crossentropy(ann(x), y);
+
+	# Bucle para entrenar cada ciclo!!!
+	aux = 0
+	ctr = 0
+	while ((loss(inputs',targets') > minLoss) && (aux < maxEpochs) && (ctr < maxEpochsVal)) # Mientras el loss no sea ok(??) && no me pase de intentos max
+
+		Flux.train!(loss, params(ann), [(inputs', targets')], ADAM(learningRate)); 
+
+		lossVector[aux+1] = loss(inputs',targets')
+
+		if (lossVector[aux+1] >= lossVector[aux])
+			ctr += 1
+		else
+			ctr = 0
+		end
+
+		aux += 1
+	end
+	
+	# Devuelvo RNA entrenada y un vector con los valores de loss en cada iteración.
+	return (ann, lossVector)
+
+end
+
 function experimentoRNA(dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}})
 	# Función para facilitar el experimento con la técnica de RNA. Voy a coger 8 arquitecturas a pelo con entre 1 y 2 ocultas.
 	listaRNAs = []
