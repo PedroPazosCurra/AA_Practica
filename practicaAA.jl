@@ -212,7 +212,7 @@ function entrenaRNA(topology::AbstractArray{<:Int,1}, dataset::Tuple{AbstractArr
 
 	ann = Chain(
 		Dense(3,264,σ),
-		Dense(264,1,σ)
+		Dense(264,1,identity)
 	)
 	
 	loss(x, y) = (size(y, 1) == 1) ? Losses.binarycrossentropy(ann(x), y) : Losses.crossentropy(ann(x), y);
@@ -233,8 +233,8 @@ function entrenaRNA(topology::AbstractArray{<:Int,1}, dataset::Tuple{AbstractArr
 end
 
 function entrenaRNA(topology::AbstractArray{<:Int,1}, dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}, validacion::Tuple{AbstractArray{<:Real,2},
-	AbstractArray{Bool,2}}, test::Tuple{AbstractArray{<:Real,2},
-	AbstractArray{Bool,2}}, maxEpochsVal::Int64=20, maxEpochs::Int64=1000, minLoss::Real=0, learningRate::Real=0.001)
+	AbstractArray{Bool,2}}=(), test::Tuple{AbstractArray{<:Real,2},
+	AbstractArray{Bool,2}}=(), maxEpochsVal::Int64=20, maxEpochs::Int64=10000, minLoss::Real=0, learningRate::Real=0.001)
 
 	# Ojo 1, cercionarse de que inputs y targets tengan cada patrón en cada columna. La transpongo con ' pero ver si falla.
 	# Ojo 2, las matrices que se pasan para entrenar deben ser disjuntas a las que se usen para test.
@@ -242,12 +242,19 @@ function entrenaRNA(topology::AbstractArray{<:Int,1}, dataset::Tuple{AbstractArr
 	inputs = dataset[1]
 	targets = dataset[2]
 	lossVector = zeros(maxEpochs)
+	
+	if (!isempty(validacion))
+		inval = validacion[1]
+		outval = validacion[2]
+		lossVectorValidacion = zeros(maxEpochs)
+	end
+	
 	# Creo RNA que vamos a entrenar 
 #	ann = creaRNA(topology, size(inputs,1), size(targets,1))
 
 	ann = Chain(
-		Dense(3,264,σ),
-		Dense(264,1,σ)
+		Dense(3,size(dataset,1),σ),
+		Dense(size(dataset,1),1,σ),
 	)
 	
 	loss(x, y) = (size(y, 1) == 1) ? Losses.binarycrossentropy(ann(x), y) : Losses.crossentropy(ann(x), y);
@@ -256,16 +263,22 @@ function entrenaRNA(topology::AbstractArray{<:Int,1}, dataset::Tuple{AbstractArr
 	aux = 1
 	ctr = 0
 	auxAnn = ann
-	while ((loss(inputs',targets') > minLoss) && (aux < maxEpochs) && (ctr < maxEpochsVal)) # Mientras el loss no sea ok(??) && no me pase de intentos max
+
+	while ((loss(inputs',targets') > minLoss) && (aux < maxEpochs) && (ctr < maxEpochsVal)) 
 
 		Flux.train!(loss, params(ann), [(inputs', targets')], ADAM(learningRate)); 
 
 		lossVector[aux+1] = loss(inputs',targets')
-
-		if (lossVector[aux+1] >= lossVector[aux])
-			ctr += 1
-		else
-			ctr = 0
+		
+		if (!isempty(validacion))
+			lossVectorValidacion[aux+1] = loss(inval',outval')
+			if (lossVectorValidacion[aux+1] >= lossVectorValidacion[aux])
+				ctr += 1
+			else
+				ctr = 0
+				auxAnn = ann
+			end
+		else 
 			auxAnn = ann
 		end
 
@@ -273,6 +286,7 @@ function entrenaRNA(topology::AbstractArray{<:Int,1}, dataset::Tuple{AbstractArr
 	end
 	
 	# Devuelvo RNA entrenada y un vector con los valores de loss en cada iteración.
+	# Si se da conjunto de validación, devuelve la rna con menor error de validación.
 	return (auxAnn, lossVector)
 
 end
@@ -576,9 +590,9 @@ for d in values(dataset)
 end
 inputsMatrix = zeros(264,3)
 for i in 1:size(il,1)
-	inputsMatrix[i,1] = mean(il[i])
-	inputsMatrix[i,2] = mean(rl[i])
-	inputsMatrix[i,3] = mean(al[i])
+	inputsMatrix[i,1] = std(il[i])
+	inputsMatrix[i,2] = std(rl[i])
+	inputsMatrix[i,3] = std(al[i])
 end	
 
 normalizeMinMax!(inputsMatrix)
@@ -586,7 +600,9 @@ outputsMatrix = alcoholoneHotEncoding(parse.(Float64,ol))
 
 reparto = holdOut(264,0.1,0.1)
 
-entrenaRNA([2, 3],(inputsMatrix[reparto[1],:], outputsMatrix[reparto[1],:]), (inputsMatrix[reparto[2],:], outputsMatrix[reparto[2],:]), (inputsMatrix[reparto[3],:], outputsMatrix[reparto[3],:]))
+ann = entrenaRNA([2, 3],(inputsMatrix[reparto[1],:], outputsMatrix[reparto[1],:]), (inputsMatrix[reparto[2],:], outputsMatrix[reparto[2],:]), (inputsMatrix[reparto[3],:], outputsMatrix[reparto[3],:]))
+
+testout =  alcoholoneHotEncoding(ann[1](inputsMatrix[reparto[3],:]'))
 
 trainset = inputsMatrix[1:234, :]
 testset = inputsMatrix[235:size(inputsMatrix,1), :]
