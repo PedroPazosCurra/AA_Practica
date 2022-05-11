@@ -6,6 +6,7 @@ using XLSX: readdata
 using Random
 using DataFrames
 using ScikitLearn
+using Flux.Losses
 
 
 
@@ -73,13 +74,52 @@ function normalizeZeroMean(x::AbstractArray{<:Real,2}, y::NTuple{2, AbstractArra
 normalizeZeroMean(x::AbstractArray{<:Real,2}) =
 	normalizeZeroMean!(copy(x))
 
+function classifyOutputs(x::AbstractArray{<:Real,2},threshold::Real=0.5)
+	if (size(x,2) == 1)
+		return x .>= threshold
+	else
+		(_,indicesMaxEachInstance) = findmax(x, dims=2)
+		aux = falses(size(x))
+		aux[indicesMaxEachInstance] .= true
+		return aux
+	end
+end
 
 function accuracy(targets::AbstractArray{Bool,1}, outputs::AbstractArray{Bool, 1})
     acc = targets .== outputs
     (sum(acc) * 100)/(length(acc))
     end
 
+function accuracy(targets::AbstractArray{Bool,2}, outputs::AbstractArray{Bool, 2})
+    if (size(targets,2) == 1) 
+    	accuracy(targets[:,1],outputs[:,1])
+    elseif (size(targets,2) > 2)
+    	acc = 0
+    	aux = targets .== outputs
+    	for i in 1:size(aux,1)
+    		if (sum(aux[i,:]) == size(targets,2))
+    			acc += 1
+    		end
+    	end
+    	acc = acc / size(targets,1)
+    	return acc
+    end
+end
 
+function accuracy(targets::AbstractArray{Bool,1},outputs::AbstractArray{<:Real, 1}, threshold::Real=0.5)
+    aux = outputs .>= threshold
+    accuracy(targets,aux)
+end
+
+
+function accuracy(targets::AbstractArray{Bool,2},outputs::AbstractArray{<:Real, 2})
+    if (size(targets,2) == 1) 
+    	accuracy(targets[:,1],outputs[:,1])
+    elseif (size(targets,2) > 2)
+    	aux = classifyOutputs(outputs)
+    	accuracy(targets,aux)
+    end
+end
 
 
 ###########################
@@ -317,3 +357,4 @@ function crossvalidation(targets::AbstractArray{<:Any,1}, k::Int64)
 	crossvalidation(oneHotEncoding(targets),k)
 end
 # importante asegurarse de que se tienen al menos 10 patrones de cada clase
+
