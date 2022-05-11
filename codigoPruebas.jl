@@ -288,8 +288,92 @@ end
 # Clasificacion Multiclase
 ###########################
 
+#  Dado que nuestra práctica pretende clasificar entre tan solo 2 clases, no se ha 
+# hecho uso de estas funciones.
+
+function multiClass(inputs::AbstractArray{<:Real, 2}, targets::AbstractArray{Bool,2})
+	
+	numClasses = size(inputs,2)
+	numInstances = size(inputs,1)
+	outputs = Array{Float32,2}(undef, numInstances, numClasses)
+
+	for numClass in 1:numClasses
+		model = fit(inputs, targets[:,[numClass]]);
+		outputs[:,numClass] .= model(inputs);
+	end
+
+	outputs = softmax(outputs')'
+	vmax = maximum(outputs, dims=2)
+	# TODO :	"Esta última línea puede presentar problemas en caso de que
+	# varios modelos generen la misma salida, ¿dónde estaría el
+	# problema? ¿cómo se solucionaría?"
+	outputs = (outputs .== vmax)
+end
 
 
+function confusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{Bool,2}, estrategia::String)
+
+	@assert ((size(outputs,2) == size(targets,2)) && size(outputs != 2))
+	@assert (estrategia == "macro" || estrategia == "weighted")
+
+	sensibArr = zeros(size(outputs,2))
+	especifArr = zeros(size(outputs,2))
+	vppArr = zeros(size(outputs,2))
+	vpnbArr = zeros(size(outputs,2))
+	f1Arr = zeros(size(outputs,2))
+
+	for i in size(outputs,2)
+		confMatArr = confusionMatrix(outputs[i],targets[i])
+		sensibArr[i] = confMatArr["sensibilidad"]
+		especifArr[i] = confMatArr["especificidad"]
+		vppArr[i] = confMatArr["valor_predictivo_positivo"]
+		vpnbArr[i] = confMatArr["valor_predictivo_negativo"]
+		f1Arr[i] = confMatArr["f1_score"]
+	end
+	
+	if (estrategia == "macro")
+		sensibilidad = mean(sensibArr) / size(sensibArr)
+		especificidad = mean(especifArr) / size(especifArr)
+		v_pred_pos = mean(vppArr) / size(vppArr)
+		v_pred_neg = mean(vpnbArr) / size(vpnbArr)
+		f1_score = mean(f1Arr) / size(f1Arr)
+	else
+		sumArr = zeros(Int64, size(targets,2))
+		for j in size(targets,2)
+			sumArr[j] = sum(targets[:,j])
+		end
+
+		for k in size(sumArr)
+			sensibArr[k] *= sumArr[k]
+			especifArr[k] *= sumArr[k] 
+			vppArr[k] *= sumArr[k] 
+			vpnbArr[k] *= sumArr[k] 
+			f1Arr[k] *= sumArr[k] 
+		end
+		sensibilidad = mean(sensibArr) / size(sensibArr)
+		especificidad = mean(especifArr) / size(especifArr)
+		v_pred_pos = mean(vppArr) / size(vppArr)
+		v_pred_neg = mean(vpnbArr) / size(vpnbArr)
+		f1_score = mean(f1Arr) / size(f1Arr)
+	end
+
+
+	return Dict("valor_precision" => accuracy, "sensibilidad" => sensibilidad , "especificidad" => especificidad, "valor_predictivo_positivo" => v_pred_pos, "valor_predictivo_negativo" => v_pred_neg, "f1_score" => f1_score)
+end
+
+function confusionMatrix(outputs::AbstractArray{<:Real,2}, targets::AbstractArray{Bool,2}, estrategia::String)
+	confusionMatrix(classifyOutputs(outputs), targets, estrategia)
+end
+
+function confusionMatrix(outputs::AbstractArray{<:Any}, targets::AbstractArray{<:Any}, estrategia::String)
+
+	@assert(all([in(output, unique(targets)) for output in outputs]))
+	uout = unique(outputs)
+	utarg = unique(targets)
+	uout = oneHotEncoding(uout)
+	utarg = oneHotEncoding(utarg)
+	confusionMatrix(uout,utarg,estrategia)
+end
 
 
 ###########################
