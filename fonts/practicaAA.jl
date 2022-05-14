@@ -10,6 +10,9 @@ using ScikitLearn
 alcoholoneHotEncoding(vector,umbral::Number=5.5) = 
 	reshape(vector .< umbral,(size(vector,1),1))
 
+	rnaoneHotEncoding(vector,umbral::Number=0.5) = 
+	reshape(vector .>= umbral,(size(vector,1),1))
+
 oneHotEncoding(feature::AbstractArray{<:Any,1}, classes::AbstractArray{<:Any,1}) = 
 	if (size(classes,1) == 2)
 		boolVector = feature .== classes
@@ -208,12 +211,12 @@ function entrenaRNA(topology::AbstractArray{<:Int,1}, dataset::Tuple{AbstractArr
 	targets = dataset[2]
 	lossVector = zeros(maxEpochs)
 	# Creo RNA que vamos a entrenar 
-#	ann = creaRNA(topology, size(inputs,1), size(targets,1))
+	ann = creaRNA(topology, size(inputs,1), size(targets,1))
 
-	ann = Chain(
-		Dense(3,264,σ),
-		Dense(264,1,identity)
-	)
+#	ann = Chain(
+#		Dense(3,264,σ),
+#		Dense(264,1,identity)
+#	)
 	
 	loss(x, y) = (size(y, 1) == 1) ? Losses.binarycrossentropy(ann(x), y) : Losses.crossentropy(ann(x), y);
 
@@ -250,12 +253,12 @@ function entrenaRNA(topology::AbstractArray{<:Int,1}, dataset::Tuple{AbstractArr
 	end
 	
 	# Creo RNA que vamos a entrenar 
-#	ann = creaRNA(topology, size(inputs,1), size(targets,1))
+	ann = creaRNA(topology, size(inputs,1), size(targets,1))
 
-	ann = Chain(
-		Dense(3,size(dataset,1)),
-		Dense(size(dataset,1),1),
-	)
+#	ann = Chain(
+#		Dense(3,size(dataset,1)),
+#		Dense(size(dataset,1),1),
+#	)
 	
 	loss(x, y) = (size(y, 1) == 1) ? Losses.binarycrossentropy(ann(x), y) : Losses.crossentropy(ann(x), y);
 
@@ -351,6 +354,120 @@ function experimentoRNA(dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bo
 
 end
 
+function experimentoRNA(dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}})
+	topologyArray = [[16], [32], [64], [128], [16,32], [32,64], [64,64], [64,128]]
+	
+	reparto = holdOut(264,0.1,0.2)
+	listaAnn = []
+	
+	for i in 1:(size(topologyArray,1))
+		ann = entrenaRNA(topologyArray[i],(dataset[1][reparto[3],:], dataset[2][reparto[3],:]), (dataset[1][reparto[2],:], dataset[2][reparto[2],:]), (dataset[1][reparto[1],:], dataset[2][reparto[1],:]))
+		push!(listaAnn,(topologyArray[i],ann))
+		
+		x = ann[1](inputsMatrix[reparto[1],:]')
+		out = rnaoneHotEncoding(x')
+		conf = confusionMatrix(vec(out), outputsMatrix[reparto[1]])
+		print("\nMatriz de confusión para la topología $(topologyArray[i]):\n\n$(conf)")
+		print("\n")
+		
+	end
+	
+	return listaAnn;
+	
+end
+
+function experimentoSVC(dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}})
+	
+	parametersArray = [
+		Dict("kernel" => "rbf", "degree" => 3, "gamma" => 2, "C"=> 1), 
+		Dict("kernel" => "rbf", "degree" => 3, "gamma" => 2, "C"=> 2),
+		Dict("kernel" => "rbf", "degree" => 3, "gamma" => 2, "C"=> 3), 
+		Dict("kernel" => "poly", "degree" => 3, "gamma" => 2, "C"=> 1), 
+		Dict("kernel" => "linear", "degree" => 3, "gamma" => 2, "C"=> 1), 
+		Dict("kernel" => "sigmoid", "degree" => 3, "gamma" => 2, "C"=> 0.9), 
+		Dict("kernel" => "sigmoid", "degree" => 3, "gamma" => 2, "C"=> 1), 
+		Dict("kernel" => "sigmoid", "degree" => 3, "gamma" => 2, "C"=> 3)]
+	
+	reparto = holdOut(264,0.1,0.2)
+	listaSVC = []
+	
+	trainset = dataset[1][1:234, :];
+	testset = dataset[1][235:size(inputsMatrix,1), :];
+	trainout = dataset[2][1:234];
+	testout = dataset[2][235:size(inputsMatrix,1)];
+	
+	for i in 1:(size(parametersArray,1))
+		model = SVC(kernel=parametersArray[i]["kernel"], degree=parametersArray[i]["degree"], gamma=parametersArray[i]["gamma"], C=parametersArray[i]["C"])
+		
+		fit!(model, trainset, trainout)
+		expout = predict(model, testset); 
+		conf = confusionMatrix(expout,vec(testout))
+		
+		print("\nMatriz de confusión para la configuración $(parametersArray[i]):\n\n$(conf)")
+		print("\n")
+		
+	end
+	
+	return listaSVC;
+	
+end
+
+function experimentoArboles(dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}})
+	
+	parametersArray = [4, 2, 6, 15, 1, 7]
+	
+	reparto = holdOut(264,0.1,0.2)
+	listaSVC = []
+	
+	trainset = dataset[1][1:234, :];
+	testset = dataset[1][235:size(inputsMatrix,1), :];
+	trainout = dataset[2][1:234];
+	testout = dataset[2][235:size(inputsMatrix,1)];
+	
+	for i in 1:(size(parametersArray,1))
+		model = DecisionTreeClassifier(max_depth=parametersArray[i], random_state=1)
+		
+		fit!(model, trainset, trainout)
+		expout = predict(model, testset); 
+		conf = confusionMatrix(expout,vec(testout))
+		
+		print("\nMatriz de confusión para el maxdepth = $(parametersArray[i]):\n\n$(conf)")
+		print("\n")
+		
+	end
+	
+	return listaSVC;
+	
+end
+
+function experimentoKNN(dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}})
+	
+	parametersArray = [3, 4, 5, 6, 7, 10]
+	
+	reparto = holdOut(264,0.1,0.2)
+	listaSVC = []
+	
+	trainset = dataset[1][1:234, :];
+	testset = dataset[1][235:size(inputsMatrix,1), :];
+	trainout = dataset[2][1:234];
+	testout = dataset[2][235:size(inputsMatrix,1)];
+	
+	
+	for i in 1:(size(parametersArray,1))
+		model = KNeighborsClassifier(parametersArray[i])
+		
+		fit!(model, trainset, trainout)
+		expout = predict(model, testset); 
+		conf = confusionMatrix(expout,vec(testout))
+		
+		print("\nMatriz de confusión para k = $(parametersArray[i]):\n\n$(conf)")
+		print("\n")
+		
+	end
+	
+	return listaSVC;
+	
+end
 
 #function testeame(modelo::<:Any, inputs::AbstractArray{<:Any,1} , targets::AbstractArray{<:Any,1})
 	# Función que dado un modelo cualquiera, inputs y output esperado (target) saca la matriz de confusión.
@@ -388,9 +505,6 @@ function conjuntos(inputs::AbstractArray{<:Any,2},outputs::AbstractArray{<:Any,2
 end
 
 
-@sk_import svm: SVC
-@sk_import tree: DecisionTreeClassifier
-@sk_import neighbors: KNeighborsClassifier
 
 # modelCrossValidation(tipoModelo::sabeDios, inputs::, outputs:: Array{Any,1}, k_cross_validation, parameters::Dict)
 #   if tipoModelo RNA -> oneHotEncoding  Array{Any,1} y codificacion salida 
@@ -590,19 +704,28 @@ for d in values(dataset)
 end
 inputsMatrix = zeros(264,3)
 for i in 1:size(il,1)
-	inputsMatrix[i,1] = std(il[i])
-	inputsMatrix[i,2] = std(rl[i])
-	inputsMatrix[i,3] = std(al[i])
+	inputsMatrix[i,1] = std(il[i]) .* mean(il[i])
+	inputsMatrix[i,2] = std(rl[i]) .* mean(rl[i])
+	inputsMatrix[i,3] = std(al[i]) .* mean(al[i])
 end	
+
 
 normalizeMinMax!(inputsMatrix)
 outputsMatrix = alcoholoneHotEncoding(parse.(Float64,ol))
 
 reparto = holdOut(264,0.1,0.2)
 
-ann = entrenaRNA([2, 3],(inputsMatrix[reparto[1],:], outputsMatrix[reparto[1],:]), (inputsMatrix[reparto[2],:], outputsMatrix[reparto[2],:]), (inputsMatrix[reparto[3],:], outputsMatrix[reparto[3],:]))
+ann = entrenaRNA([32, 64],(inputsMatrix[reparto[1],:], outputsMatrix[reparto[1],:]), (inputsMatrix[reparto[2],:], outputsMatrix[reparto[2],:]), (inputsMatrix[reparto[3],:], outputsMatrix[reparto[3],:]))
 
 testout =  alcoholoneHotEncoding(ann[1](inputsMatrix[reparto[3],:]'))
+
+# TERCERA APROX
+inputsMatrix = [(inputsMatrix[:,1] .* inputsMatrix[:, 2]) inputsMatrix[:,3]]
+
+ann = entrenaRNA([64, 128],(inputsMatrix[reparto[3],:], outputsMatrix[reparto[3],:]), (inputsMatrix[reparto[2],:], outputsMatrix[reparto[2],:]), (inputsMatrix[reparto[1],:], outputsMatrix[reparto[1],:]))
+x = ann[1](inputsMatrix[reparto[1],:]')
+out = rnaoneHotEncoding(x')
+confusionMatrix(vec(out), outputsMatrix[reparto[1]])
 
 trainset = inputsMatrix[1:234, :]
 testset = inputsMatrix[235:size(inputsMatrix,1), :]
@@ -617,14 +740,15 @@ testout = outputsMatrix[235:size(inputsMatrix,1)]
 #trainout = outputsMatrix[1:234]
 #testout = outputsMatrix[235:size(inputsMatrix,1)]
 
+@sk_import svm: SVC
+@sk_import tree: DecisionTreeClassifier
+@sk_import neighbors: KNeighborsClassifier
+
+
+
 parameters = Dict("kernel" => "sigmoid", "degree" => 3, "gamma" => 2, "C"=> 3)
 model = SVC(kernel=parameters["kernel"], degree=parameters["degree"], gamma=parameters["gamma"], C=parameters["C"])
 
-
-
-fit!(model, trainset, trainout)
-expout = predict(model, testset); 
-d = confusionMatrix(expout,vec(testout))
 
 
 
@@ -632,6 +756,17 @@ d = confusionMatrix(expout,vec(testout))
 
 model = KNeighborsClassifier();
 
-model = DecisionTreeClassifier(max_depth=3, random_state=1) 
-model = KNeighborsClassifier(10);
+model = DecisionTreeClassifier(max_depth=7, random_state=1)
 
+model = KNeighborsClassifier(10)
+fit!(model, trainset, trainout)
+expout = predict(model, testset); 
+d = confusionMatrix(expout,vec(testout))
+
+
+inputsMatrix = Array{Vector}(undef,264,3)
+for i in 1:size(il,1)
+    inputsMatrix[i,1] = il[i]
+    inputsMatrix[i,2] = rl[i]
+    inputsMatrix[i,3] = al[i]
+end

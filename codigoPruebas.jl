@@ -163,14 +163,9 @@ function entrenaRNA(topology::AbstractArray{<:Int,1}, dataset::Tuple{AbstractArr
 		outval = validacion[2]
 		lossVectorValidacion = zeros(maxEpochs)
 	end
-	
 	# Creo RNA que vamos a entrenar 
-#	ann = creaRNA(topology, size(inputs,1), size(targets,1))
+	ann = creaRNA(topology, size(inputs,2), size(targets,2))
 
-	ann = Chain(
-		Dense(3,size(dataset,1),σ),
-		Dense(size(dataset,1),1,σ),
-	)
 	
 	loss(x, y) = (size(y, 1) == 1) ? Losses.binarycrossentropy(ann(x), y) : Losses.crossentropy(ann(x), y);
 
@@ -182,9 +177,7 @@ function entrenaRNA(topology::AbstractArray{<:Int,1}, dataset::Tuple{AbstractArr
 	while ((loss(inputs',targets') > minLoss) && (aux < maxEpochs) && (ctr < maxEpochsVal)) 
 
 		Flux.train!(loss, params(ann), [(inputs', targets')], ADAM(learningRate)); 
-
 		lossVector[aux+1] = loss(inputs',targets')
-		
 		if (!isempty(validacion))
 			lossVectorValidacion[aux+1] = loss(inval',outval')
 			if (lossVectorValidacion[aux+1] >= lossVectorValidacion[aux])
@@ -196,14 +189,11 @@ function entrenaRNA(topology::AbstractArray{<:Int,1}, dataset::Tuple{AbstractArr
 		else 
 			auxAnn = deepcopy(ann)
 		end
-
 		aux += 1
 	end
-	
 	# Devuelvo RNA entrenada y un vector con los valores de loss en cada iteración.
 	# Si se da conjunto de validación, devuelve la rna con menor error de validación.
 	return (auxAnn, lossVector)
-
 end
 
 
@@ -402,8 +392,6 @@ function confusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{
 		v_pred_neg = mean(vpnbArr) / size(vpnbArr)
 		f1_score = mean(f1Arr) / size(f1Arr)
 	end
-
-
 	return Dict("valor_precision" => accuracy, "sensibilidad" => sensibilidad , "especificidad" => especificidad, "valor_predictivo_positivo" => v_pred_pos, "valor_predictivo_negativo" => v_pred_neg, "f1_score" => f1_score)
 end
 
