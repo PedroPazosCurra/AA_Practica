@@ -132,12 +132,16 @@ end
 function creaRNA(topology::AbstractArray{<:Int,1}, numInputsLayer::Int64, numOutputsLayer::Int64)
 	# RNA vacía
 	ann = Chain();
-
+	
+	ann = Chain(ann..., Dense(numInputsLayer, topology[1], σ) );
 	# Si hay capas ocultas, se itera por topology y se crea una capa por iteración
-	for numOutputsLayer = topology 
-		ann = Chain(ann..., Dense(numInputsLayer, numOutputsLayer, σ) ); 
-		numInputsLayer = numOutputsLayer; 
-	end;
+	if (size(topology,1) >= 2)
+		for aux in 2:(size(topology,1))
+			ann = Chain(ann..., Dense(topology[aux-1], topology[aux], σ) );  
+		end;
+	end
+	
+	ann = Chain(ann..., Dense(topology[size(topology,1)], numOutputsLayer, σ) );
 
 	# Devuelve rna creada!!
 	return ann
@@ -444,4 +448,5 @@ function crossvalidation(targets::AbstractArray{<:Any,1}, k::Int64)
 	crossvalidation(oneHotEncoding(targets),k)
 end
 # importante asegurarse de que se tienen al menos 10 patrones de cada clase
+
 
