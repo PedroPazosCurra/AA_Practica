@@ -122,6 +122,7 @@ function accuracy(targets::AbstractArray{Bool,2},outputs::AbstractArray{<:Real, 
 end
 
 
+
 ###########################
 # RR NN AA
 ###########################
@@ -186,10 +187,10 @@ function entrenaRNA(topology::AbstractArray{<:Int,1}, dataset::Tuple{AbstractArr
 				ctr += 1
 			else
 				ctr = 0
-				auxAnn = ann
+				auxAnn = deepcopy(ann)
 			end
 		else 
-			auxAnn = ann
+			auxAnn = deepcopy(ann)
 		end
 
 		aux += 1
@@ -323,10 +324,11 @@ end
 
 
 
-
 ###########################
 # Clasificacion Multiclase
 ###########################
+
+
 
 #  Dado que nuestra práctica pretende clasificar entre tan solo 2 clases, no se ha 
 # hecho uso de estas funciones.
@@ -414,6 +416,7 @@ function confusionMatrix(outputs::AbstractArray{<:Any}, targets::AbstractArray{<
 	utarg = oneHotEncoding(utarg)
 	confusionMatrix(uout,utarg,estrategia)
 end
+
 
 
 ###########################

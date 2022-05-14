@@ -7,7 +7,7 @@ using Random
 using DataFrames
 using ScikitLearn
 
-alcoholoneHotEncoding(vector,umbral::Number=3.3) = 
+alcoholoneHotEncoding(vector,umbral::Number=5.5) = 
 	reshape(vector .< umbral,(size(vector,1),1))
 
 oneHotEncoding(feature::AbstractArray{<:Any,1}, classes::AbstractArray{<:Any,1}) = 
@@ -253,8 +253,8 @@ function entrenaRNA(topology::AbstractArray{<:Int,1}, dataset::Tuple{AbstractArr
 #	ann = creaRNA(topology, size(inputs,1), size(targets,1))
 
 	ann = Chain(
-		Dense(3,size(dataset,1),σ),
-		Dense(size(dataset,1),1,σ),
+		Dense(3,size(dataset,1)),
+		Dense(size(dataset,1),1),
 	)
 	
 	loss(x, y) = (size(y, 1) == 1) ? Losses.binarycrossentropy(ann(x), y) : Losses.crossentropy(ann(x), y);
@@ -279,7 +279,7 @@ function entrenaRNA(topology::AbstractArray{<:Int,1}, dataset::Tuple{AbstractArr
 				auxAnn = ann
 			end
 		else 
-			auxAnn = ann
+			auxAnn = deepcopy(ann)
 		end
 
 		aux += 1
@@ -598,7 +598,7 @@ end
 normalizeMinMax!(inputsMatrix)
 outputsMatrix = alcoholoneHotEncoding(parse.(Float64,ol))
 
-reparto = holdOut(264,0.1,0.1)
+reparto = holdOut(264,0.1,0.2)
 
 ann = entrenaRNA([2, 3],(inputsMatrix[reparto[1],:], outputsMatrix[reparto[1],:]), (inputsMatrix[reparto[2],:], outputsMatrix[reparto[2],:]), (inputsMatrix[reparto[3],:], outputsMatrix[reparto[3],:]))
 
