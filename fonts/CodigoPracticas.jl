@@ -34,6 +34,14 @@ oneHotEncoding(feature::AbstractArray{<:Any,1}) =
 oneHotEncoding(feature::AbstractArray{Bool,1}) = 
 	reshape(feature, (length(feature),1))
 	
+	
+alcoholoneHotEncoding(vector,umbral::Number=5.5) = 
+	reshape(vector .< umbral,(size(vector,1),1))
+
+rnaoneHotEncoding(vector,umbral::Number=0.5) = 
+	reshape(vector .>= umbral,(size(vector,1),1))
+
+
 calculateMinMaxNormalizationParameters(x::AbstractArray{<:Real,2}) = 
 	(minimum(x, dims=1), maximum(x, dims=1))
 	
