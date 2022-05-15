@@ -168,6 +168,7 @@ function entrenaRNA(topology::AbstractArray{<:Int,1}, dataset::Tuple{AbstractArr
 
 	
 	loss(x, y) = (size(y, 1) == 1) ? Losses.binarycrossentropy(ann(x), y) : Losses.crossentropy(ann(x), y);
+	
 
 	# Bucle para entrenar cada ciclo!!!
 	aux = 1
@@ -438,3 +439,331 @@ end
 # importante asegurarse de que se tienen al menos 10 patrones de cada clase
 
 
+
+###########################
+# Integración
+###########################
+
+
+
+function experimentoRNA(dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}})
+	topologyArray = [[16], [32], [64], [128], [16,32], [32,64], [64,64], [64,128]]
+	
+	reparto = holdOut(264,0.1,0.2)
+	listaAnn = []
+	
+	for i in 1:(size(topologyArray,1))
+		ann = entrenaRNA(topologyArray[i],(dataset[1][reparto[3],:], dataset[2][reparto[3],:]), (dataset[1][reparto[2],:], dataset[2][reparto[2],:]), (dataset[1][reparto[1],:], dataset[2][reparto[1],:]))
+		push!(listaAnn,(topologyArray[i],ann))
+		
+		x = ann[1](inputsMatrix[reparto[1],:]')
+		out = rnaoneHotEncoding(x')
+		conf = confusionMatrix(vec(out), outputsMatrix[reparto[1]])
+		print("\nMatriz de confusión para la topología $(topologyArray[i]):\n\n$(conf)")
+		print("\n")
+		
+	end
+	
+	return listaAnn;
+	
+end
+
+function experimentoSVC(dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}, k::Int64=10)
+	
+	inp = dataset[1]
+	out = dataset[2]
+
+	parametersArray = [
+		Dict("kernel" => "rbf", "degree" => 3, "gamma" => 2, "C"=> 1), 
+		Dict("kernel" => "rbf", "degree" => 3, "gamma" => 2, "C"=> 2),
+		Dict("kernel" => "rbf", "degree" => 3, "gamma" => 2, "C"=> 3), 
+		Dict("kernel" => "poly", "degree" => 3, "gamma" => 2, "C"=> 1), 
+		Dict("kernel" => "linear", "degree" => 3, "gamma" => 2, "C"=> 1), 
+		Dict("kernel" => "sigmoid", "degree" => 3, "gamma" => 2, "C"=> 0.9), 
+		Dict("kernel" => "sigmoid", "degree" => 3, "gamma" => 2, "C"=> 1), 
+		Dict("kernel" => "sigmoid", "degree" => 3, "gamma" => 2, "C"=> 3)]
+	
+	
+	indicesCV = crossvalidation(size(inp,1),k)
+	
+	for i in 1:(size(parametersArray,1))
+		model = SVC(kernel=parametersArray[i]["kernel"], degree=parametersArray[i]["degree"], gamma=parametersArray[i]["gamma"], C=parametersArray[i]["C"])
+		
+		vectorCV = []
+		for i in 1:k
+			testset = [];
+			trainset = [];
+			
+			for i in 1:(size(indicesCV,1))
+				if (indicesCV[i] == k)
+					append!(testset,[i])
+				else
+					append!(trainset,[i])
+				end
+			end
+			fit!(model, inp[trainset,:], out[trainset])
+			expout = predict(model, inp[testset,:]); 
+			conf = confusionMatrix(expout,vec(out[testset,:]))
+			push!(vectorCV,conf)
+		end
+		
+		confM = zeros(2,2)
+		for i in 1:(size(vectorCV,1))
+			confM += vectorCV[i]["matriz_confusion"]	
+		end
+		
+		confM = floor.(confM/(size(vectorCV,1)))		
+		
+		vn = confM[1,1]
+		fp = confM[1,2]
+		fn = confM[2,1]
+		vp = confM[2,2]
+		
+		accuracy = 		(vn+vp)/(vn+fn+vp+fp)
+	        if(isnan(accuracy)) 
+	        	accuracy = 0
+	        end
+		tasa_fallo = 	(fn + fp)/(vn + vp + fn + fp)
+	        if(isnan(tasa_fallo)) 
+	        	tasa_fallo = 0
+	        end
+
+	        sensibilidad = 1
+	        if (vn != sum(confM))
+			sensibilidad = 	vp / (fn + vp)
+	        	if(isnan(sensibilidad)) 
+	            		sensibilidad = 0
+	        	end
+	        end 
+	
+		especificidad = 	vn / (fp + vn) 
+	        if (isnan(especificidad)) 
+	        	especificidad = 0
+	        end
+
+	        v_pred_pos = 1
+	        if(vn != sum(confM))
+			v_pred_pos = 	vp / (vp + fp)
+        		if(isnan(v_pred_pos)) 
+        	    		v_pred_pos = 0
+        		end
+		end
+
+		v_pred_neg = 1
+		if (vp != sum(confM))
+			v_pred_neg = 	vn / (vn + fn)
+        		if(isnan(v_pred_neg)) 
+        	    		v_pred_neg = 0
+        		end
+		end
+
+		f1_score = 0
+		if (sensibilidad != 0 && v_pred_pos != 0)
+			f1_score = 2 * (sensibilidad*v_pred_pos) / (sensibilidad+v_pred_pos)
+        		if(isnan(f1_score)) 
+        	    		f1_score = 0
+        		end
+		end
+		
+		dataConf = Dict("valor_precision" => accuracy, "tasa_fallo" => tasa_fallo, "sensibilidad" => sensibilidad , "especificidad" => especificidad, "valor_predictivo_positivo" => v_pred_pos, "valor_predictivo_negativo" => v_pred_neg, "f1_score" => f1_score, "matriz_confusion" => confM)
+		
+		print("\nMatriz de confusión para la configuración $(parametersArray[i]):\n\n$(dataConf)")
+		print("\n")
+		
+	end
+	
+end
+
+function experimentoArboles(dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}},k::Int64=10)
+	
+	inp = dataset[1]
+	out = dataset[2]
+
+	parametersArray = [4, 2, 6, 15, 1, 7]
+	
+	indicesCV = crossvalidation(size(inp,1),k)
+	
+	for i in 1:(size(parametersArray,1))
+		model = DecisionTreeClassifier(max_depth=parametersArray[i], random_state=1)
+		
+		vectorCV = []
+		for i in 1:k
+			testset = [];
+			trainset = [];
+			
+			for i in 1:(size(indicesCV,1))
+				if (indicesCV[i] == k)
+					append!(testset,[i])
+				else
+					append!(trainset,[i])
+				end
+			end
+			fit!(model, inp[trainset,:], out[trainset])
+			expout = predict(model, inp[testset,:]); 
+			conf = confusionMatrix(expout,vec(out[testset,:]))
+			push!(vectorCV,conf)
+		end
+		
+		confM = zeros(2,2)
+		for i in 1:(size(vectorCV,1))
+			confM += vectorCV[i]["matriz_confusion"]	
+		end
+		
+		confM = floor.(confM/(size(vectorCV,1)))		
+		
+		vn = confM[1,1]
+		fp = confM[1,2]
+		fn = confM[2,1]
+		vp = confM[2,2]
+		
+		accuracy = 		(vn+vp)/(vn+fn+vp+fp)
+	        if(isnan(accuracy)) 
+	        	accuracy = 0
+	        end
+		tasa_fallo = 	(fn + fp)/(vn + vp + fn + fp)
+	        if(isnan(tasa_fallo)) 
+	        	tasa_fallo = 0
+	        end
+
+	        sensibilidad = 1
+	        if (vn != sum(confM))
+			sensibilidad = 	vp / (fn + vp)
+	        	if(isnan(sensibilidad)) 
+	            		sensibilidad = 0
+	        	end
+	        end 
+	
+		especificidad = 	vn / (fp + vn) 
+	        if (isnan(especificidad)) 
+	        	especificidad = 0
+	        end
+
+	        v_pred_pos = 1
+	        if(vn != sum(confM))
+			v_pred_pos = 	vp / (vp + fp)
+        		if(isnan(v_pred_pos)) 
+        	    		v_pred_pos = 0
+        		end
+		end
+
+		v_pred_neg = 1
+		if (vp != sum(confM))
+			v_pred_neg = 	vn / (vn + fn)
+        		if(isnan(v_pred_neg)) 
+        	    		v_pred_neg = 0
+        		end
+		end
+
+		f1_score = 0
+		if (sensibilidad != 0 && v_pred_pos != 0)
+			f1_score = 2 * (sensibilidad*v_pred_pos) / (sensibilidad+v_pred_pos)
+        		if(isnan(f1_score)) 
+        	    		f1_score = 0
+        		end
+		end
+		
+		dataConf = Dict("valor_precision" => accuracy, "tasa_fallo" => tasa_fallo, "sensibilidad" => sensibilidad , "especificidad" => especificidad, "valor_predictivo_positivo" => v_pred_pos, "valor_predictivo_negativo" => v_pred_neg, "f1_score" => f1_score, "matriz_confusion" => confM)
+		
+		print("\nMatriz de confusión para el maxdepth = $(parametersArray[i]):\n\n$(dataConf)")
+		print("\n")
+		
+	end
+	
+end
+
+function experimentoKNN(dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}},k::Int64=10)
+	
+	inp = dataset[1]
+	out = dataset[2]
+
+	parametersArray = [3, 4, 5, 6, 7, 10]
+	
+	indicesCV = crossvalidation(size(inp,1),k)
+	
+	for i in 1:(size(parametersArray,1))
+		model = KNeighborsClassifier(parametersArray[i])
+		
+		vectorCV = []
+		for i in 1:k
+			testset = [];
+			trainset = [];
+			
+			for i in 1:(size(indicesCV,1))
+				if (indicesCV[i] == k)
+					append!(testset,[i])
+				else
+					append!(trainset,[i])
+				end
+			end
+			fit!(model, inp[trainset,:], out[trainset])
+			expout = predict(model, inp[testset,:]); 
+			conf = confusionMatrix(expout,vec(out[testset,:]))
+			push!(vectorCV,conf)
+		end
+		
+		confM = zeros(2,2)
+		for i in 1:(size(vectorCV,1))
+			confM += vectorCV[i]["matriz_confusion"]	
+		end
+		
+		confM = floor.(confM/(size(vectorCV,1)))		
+		
+		vn = confM[1,1]
+		fp = confM[1,2]
+		fn = confM[2,1]
+		vp = confM[2,2]
+		
+		accuracy = 		(vn+vp)/(vn+fn+vp+fp)
+	        if(isnan(accuracy)) 
+	        	accuracy = 0
+	        end
+		tasa_fallo = 	(fn + fp)/(vn + vp + fn + fp)
+	        if(isnan(tasa_fallo)) 
+	        	tasa_fallo = 0
+	        end
+
+	        sensibilidad = 1
+	        if (vn != sum(confM))
+			sensibilidad = 	vp / (fn + vp)
+	        	if(isnan(sensibilidad)) 
+	            		sensibilidad = 0
+	        	end
+	        end 
+	
+		especificidad = 	vn / (fp + vn) 
+	        if (isnan(especificidad)) 
+	        	especificidad = 0
+	        end
+
+	        v_pred_pos = 1
+	        if(vn != sum(confM))
+			v_pred_pos = 	vp / (vp + fp)
+        		if(isnan(v_pred_pos)) 
+        	    		v_pred_pos = 0
+        		end
+		end
+
+		v_pred_neg = 1
+		if (vp != sum(confM))
+			v_pred_neg = 	vn / (vn + fn)
+        		if(isnan(v_pred_neg)) 
+        	    		v_pred_neg = 0
+        		end
+		end
+
+		f1_score = 0
+		if (sensibilidad != 0 && v_pred_pos != 0)
+			f1_score = 2 * (sensibilidad*v_pred_pos) / (sensibilidad+v_pred_pos)
+        		if(isnan(f1_score)) 
+        	    		f1_score = 0
+        		end
+		end
+		
+		dataConf = Dict("valor_precision" => accuracy, "tasa_fallo" => tasa_fallo, "sensibilidad" => sensibilidad , "especificidad" => especificidad, "valor_predictivo_positivo" => v_pred_pos, "valor_predictivo_negativo" => v_pred_neg, "f1_score" => f1_score, "matriz_confusion" => confM)
+		
+		print("\nMatriz de confusión para k = $(parametersArray[i]):\n\n$(dataConf)")
+		print("\n")
+		
+	end
+	
+end

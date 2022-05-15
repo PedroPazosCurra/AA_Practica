@@ -1,3 +1,12 @@
+using DelimitedFiles
+using Statistics
+using JSON
+using Flux
+using XLSX: readdata
+using Random
+using DataFrames
+using ScikitLearn
+
 Random.seed!(1234);
 
 dataset1 = JSON.parsefile("datasets\\Cerveza.json");
