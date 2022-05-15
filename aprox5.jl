@@ -7,7 +7,7 @@ using Random
 using DataFrames
 using ScikitLearn
 
-Random.seed!(1234);
+Random.seed!(2738);
 
 dataset1 = JSON.parsefile("Cerveza.json");
 dataset2 = JSON.parsefile("Cerveza2.json");
