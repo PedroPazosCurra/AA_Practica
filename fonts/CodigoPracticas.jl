@@ -454,8 +454,7 @@ end
 
 
 
-function experimentoRNA(dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}})
-	topologyArray = [[16], [32], [64], [128], [16,32], [32,64], [64,64], [64,128]]
+function experimentoRNA(dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}},topologyArray::Array{Array{Int64, 1},1}= [[16], [32], [64], [128], [16,32], [32,64], [64,64], [64,128]])
 	
 	reparto = holdOut(264,0.1,0.2)
 	listaAnn = []
@@ -476,21 +475,18 @@ function experimentoRNA(dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bo
 	
 end
 
-function experimentoSVC(dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}, k::Int64=10)
+function experimentoSVC(dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}, k::Int64=10,parametersArray::Array{Dict{String, Any}, 1}=[
+	Dict("kernel" => "rbf", "degree" => 3, "gamma" => 2, "C"=> 1), 
+	Dict("kernel" => "rbf", "degree" => 3, "gamma" => 2, "C"=> 2),
+	Dict("kernel" => "rbf", "degree" => 3, "gamma" => 2, "C"=> 3), 
+	Dict("kernel" => "poly", "degree" => 3, "gamma" => 2, "C"=> 1), 
+	Dict("kernel" => "linear", "degree" => 3, "gamma" => 2, "C"=> 1), 
+	Dict("kernel" => "sigmoid", "degree" => 3, "gamma" => 2, "C"=> 0.9), 
+	Dict("kernel" => "sigmoid", "degree" => 3, "gamma" => 2, "C"=> 1), 
+	Dict("kernel" => "sigmoid", "degree" => 3, "gamma" => 2, "C"=> 3)])
 	
 	inp = dataset[1]
 	out = dataset[2]
-
-	parametersArray = [
-		Dict("kernel" => "rbf", "degree" => 3, "gamma" => 2, "C"=> 1), 
-		Dict("kernel" => "rbf", "degree" => 3, "gamma" => 2, "C"=> 2),
-		Dict("kernel" => "rbf", "degree" => 3, "gamma" => 2, "C"=> 3), 
-		Dict("kernel" => "poly", "degree" => 3, "gamma" => 2, "C"=> 1), 
-		Dict("kernel" => "linear", "degree" => 3, "gamma" => 2, "C"=> 1), 
-		Dict("kernel" => "sigmoid", "degree" => 3, "gamma" => 2, "C"=> 0.9), 
-		Dict("kernel" => "sigmoid", "degree" => 3, "gamma" => 2, "C"=> 1), 
-		Dict("kernel" => "sigmoid", "degree" => 3, "gamma" => 2, "C"=> 3)]
-	
 	
 	indicesCV = crossvalidation(size(inp,1),k)
 	
@@ -582,12 +578,10 @@ function experimentoSVC(dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bo
 	
 end
 
-function experimentoArboles(dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}},k::Int64=10)
+function experimentoArboles(dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}},k::Int64=10,parametersArray::Array{Int64,1}=[4, 2, 6, 15, 1, 7])
 	
 	inp = dataset[1]
 	out = dataset[2]
-
-	parametersArray = [4, 2, 6, 15, 1, 7]
 	
 	indicesCV = crossvalidation(size(inp,1),k)
 	
@@ -679,12 +673,10 @@ function experimentoArboles(dataset::Tuple{AbstractArray{<:Real,2}, AbstractArra
 	
 end
 
-function experimentoKNN(dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}},k::Int64=10)
+function experimentoKNN(dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}},k::Int64=10,parametersArray::Array{Int64,1}=[3, 4, 5, 6, 7, 10])
 	
 	inp = dataset[1]
 	out = dataset[2]
-
-	parametersArray = [3, 4, 5, 6, 7, 10]
 	
 	indicesCV = crossvalidation(size(inp,1),k)
 	
@@ -774,4 +766,28 @@ function experimentoKNN(dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bo
 		
 	end
 	
+end
+
+function modelCrossValidation(modelo::String,dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}},k::Int64=10)
+	if (modelo == "RRNNAA")
+		experimentoRNA(dataset)
+	elseif (modelo == "SVC")
+		experimentoSVC(dataset,k)
+	elseif (modelo == "TREE")
+		experimentoArboles(dataset,k)
+	elseif (modelo == "KNN")
+		experimentoKNN(dataset,k)
+	end
+end
+
+function modelCrossValidation(modelo::String,parameters,dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}},k::Int64=10)
+	if (modelo == "RRNNAA")
+		experimentoRNA(dataset,parameters)
+	elseif (modelo == "SVC")
+		experimentoSVC(dataset,k,parameters)
+	elseif (modelo == "TREE")
+		experimentoArboles(dataset,k,parameters)
+	elseif (modelo == "KNN")
+		experimentoKNN(dataset,k,parameters)
+	end
 end

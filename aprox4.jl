@@ -7,6 +7,10 @@ using Random
 using DataFrames
 using ScikitLearn
 
+@sk_import svm: SVC;
+@sk_import tree: DecisionTreeClassifier;
+@sk_import neighbors: KNeighborsClassifier;
+
 Random.seed!(1234);
 
 dataset1 = JSON.parsefile("datasets\\Cerveza.json");
@@ -36,15 +40,14 @@ for i in 1:size(il,1)
 	inputsMatrix[i,3] = std(al[i]) .* mean(al[i]);
 end
 
+
+
 normalizeMinMax!(inputsMatrix);
 outputsMatrix = alcoholoneHotEncoding(parse.(Float64,ol));
 
-experimentoRNA((inputsMatrix,outputsMatrix));
+k=10;
 
-@sk_import svm: SVC;
-@sk_import tree: DecisionTreeClassifier;
-@sk_import neighbors: KNeighborsClassifier;
-
-experimentoSVC((inputsMatrix,outputsMatrix));
-experimentoArboles((inputsMatrix,outputsMatrix));
-experimentoKNN((inputsMatrix,outputsMatrix));
+modelCrossValidation("RRNNAA",(inputsMatrix,outputsMatrix),k)
+modelCrossValidation("SVC",(inputsMatrix,outputsMatrix),k)
+modelCrossValidation("TREE",(inputsMatrix,outputsMatrix),k)
+modelCrossValidation("KNN",(inputsMatrix,outputsMatrix),k)
