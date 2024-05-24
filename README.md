@@ -17,5 +17,7 @@ El objetivo de la práctica es llevar a cabo, en diferentes iteraciones, un conj
 - K-Nearest Neighbors
 - Máquinas de Soporte Vectorial
 - Deep Learning
+
+Recae en el equipo, además, las tareas de limpieza y el Análisis Exploratorio de Datos (EDA) del *dataset*
   
 Los modelos obtenidos, de lograr métricas de calidad industrial, pueden ser empleados para, por ejemplo, la rápida determinación de deficiencias en lotes de cerveza u otras comprobaciones de calidad adyacentes, así como para el desarrollo de herramientas análogas (detección de gluten, detección de estupefacientes externos, etcétera).
